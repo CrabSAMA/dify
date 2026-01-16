@@ -252,7 +252,7 @@ class RagPipelineDraftRunIterationNodeApi(Resource):
                 pipeline=pipeline, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -287,7 +287,7 @@ class RagPipelineDraftRunLoopNodeApi(Resource):
                 pipeline=pipeline, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -326,7 +326,7 @@ class DraftRagPipelineRunApi(Resource):
                 streaming=True,
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
 
@@ -359,7 +359,7 @@ class PublishedRagPipelineRunApi(Resource):
                 streaming=streaming,
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
 
@@ -476,7 +476,8 @@ class RagPipelinePublishedDatasourceNodeRunApi(Resource):
                     is_published=False,
                     credential_id=payload.credential_id,
                 )
-            )
+            ),
+            last_event_id=helper.get_last_event_id(request),
         )
 
 
@@ -509,7 +510,8 @@ class RagPipelineDraftDatasourceNodeRunApi(Resource):
                     is_published=False,
                     credential_id=payload.credential_id,
                 )
-            )
+            ),
+            last_event_id=helper.get_last_event_id(request),
         )
 
 

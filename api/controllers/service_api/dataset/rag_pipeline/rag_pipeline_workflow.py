@@ -127,7 +127,8 @@ class DatasourceNodeRunApi(DatasetApiResource):
                     is_published=datasource_node_run_api_entity.is_published,
                     credential_id=datasource_node_run_api_entity.credential_id,
                 )
-            )
+            ),
+            last_event_id=helper.get_last_event_id(request),
         )
 
 
@@ -178,7 +179,7 @@ class PipelineRunApi(DatasetApiResource):
                 streaming=payload.response_mode == "streaming",
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except Exception as ex:
             raise PipelineRunError(description=str(ex))
 

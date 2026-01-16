@@ -361,7 +361,7 @@ class AdvancedChatDraftWorkflowRunApi(Resource):
                 app_model=app_model, user=current_user, args=args, invoke_from=InvokeFrom.DEBUGGER, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -401,7 +401,7 @@ class AdvancedChatDraftRunIterationNodeApi(Resource):
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -439,7 +439,7 @@ class WorkflowDraftRunIterationNodeApi(Resource):
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -477,7 +477,7 @@ class AdvancedChatDraftRunLoopNodeApi(Resource):
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -515,7 +515,7 @@ class WorkflowDraftRunLoopNodeApi(Resource):
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -560,7 +560,7 @@ class DraftWorkflowRunApi(Resource):
                 streaming=True,
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
 
@@ -1008,7 +1008,8 @@ class DraftWorkflowTriggerRunApi(Resource):
                     invoke_from=InvokeFrom.DEBUGGER,
                     streaming=True,
                     root_node_id=node_id,
-                )
+                ),
+                last_event_id=helper.get_last_event_id(request),
             )
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
@@ -1156,7 +1157,7 @@ class DraftWorkflowTriggerRunAllApi(Resource):
                 streaming=True,
                 root_node_id=trigger_debug_event.node_id,
             )
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
         except Exception:

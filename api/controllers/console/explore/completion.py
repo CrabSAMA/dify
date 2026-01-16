@@ -102,7 +102,7 @@ class CompletionApi(InstalledAppResource):
                 app_model=app_model, user=current_user, args=args, invoke_from=InvokeFrom.EXPLORE, streaming=streaming
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:
@@ -175,7 +175,7 @@ class ChatApi(InstalledAppResource):
                 app_model=app_model, user=current_user, args=args, invoke_from=InvokeFrom.EXPLORE, streaming=True
             )
 
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
         except services.errors.conversation.ConversationCompletedError:

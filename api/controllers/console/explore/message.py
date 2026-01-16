@@ -151,7 +151,7 @@ class MessageMoreLikeThisApi(InstalledAppResource):
                 invoke_from=InvokeFrom.EXPLORE,
                 streaming=streaming,
             )
-            return helper.compact_generate_response(response)
+            return helper.compact_generate_response(response, last_event_id=helper.get_last_event_id(request))
         except MessageNotExistsError:
             raise NotFound("Message Not Exists.")
         except MoreLikeThisDisabledError:

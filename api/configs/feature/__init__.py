@@ -83,6 +83,27 @@ class AppExecutionConfig(BaseSettings):
     )
 
 
+class SSEConfig(BaseSettings):
+    """
+    Configuration for Server-Sent Events (SSE) reconnection support
+    """
+
+    SSE_RECONNECT_ENABLED: bool = Field(
+        description="Enable or disable SSE reconnection support via Last-Event-ID header",
+        default=True,
+    )
+
+    SSE_EVENT_CACHE_TTL: PositiveInt = Field(
+        description="Time-to-live in seconds for cached SSE events in Redis",
+        default=600,
+    )
+
+    SSE_EVENT_CACHE_MAX_SIZE: PositiveInt = Field(
+        description="Maximum number of events to cache per task for SSE reconnection",
+        default=1000,
+    )
+
+
 class CodeExecutionSandboxConfig(BaseSettings):
     """
     Configuration for the code execution sandbox environment
@@ -1327,6 +1348,7 @@ class FeatureConfig(
     RepositoryConfig,
     SandboxExpiredRecordsCleanConfig,
     SecurityConfig,
+    SSEConfig,
     TenantIsolatedTaskQueueConfig,
     ToolConfig,
     UpdateConfig,

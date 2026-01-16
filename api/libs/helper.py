@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Optional, Union, cast
 from uuid import UUID
 from zoneinfo import available_timezones
 
-from flask import Response, stream_with_context
+from flask import Request, Response, stream_with_context
 from flask_restx import fields
 from pydantic import BaseModel
 from pydantic.functional_validators import AfterValidator
@@ -259,7 +259,44 @@ def generate_text_hash(text: str) -> str:
     return sha256(hash_text.encode()).hexdigest()
 
 
-def compact_generate_response(response: Union[Mapping, Generator, RateLimitGenerator]) -> Response:
+def get_last_event_id(req: Request) -> str | None:
+    """
+    Extract the Last-Event-ID header from a Flask request.
+
+    This header is sent by clients when reconnecting to an SSE stream,
+    allowing the server to resume from where the client left off.
+
+    Args:
+        req: The Flask Request object.
+
+    Returns:
+        The Last-Event-ID header value, or None if not present.
+    """
+    return req.headers.get("Last-Event-ID")
+
+
+def compact_generate_response(
+    response: Union[Mapping, Generator, RateLimitGenerator],
+    last_event_id: str | None = None,
+) -> Response:
+    """
+    Create an HTTP response for SSE streaming with optional reconnection support.
+
+    When last_event_id is provided (from the client's Last-Event-ID header), this function
+    will attempt to resume the stream from cached events (if SSE reconnection is enabled
+    and cached events exist).
+
+    The task_id is automatically extracted from the last_event_id which has the format:
+    {task_id}:{sequence_number}
+
+    Args:
+        response: The response data - either a mapping (dict) for JSON response,
+                 or a generator for SSE streaming.
+        last_event_id: Optional Last-Event-ID header value from the client for reconnection.
+
+    Returns:
+        Flask Response object with appropriate content type.
+    """
     if isinstance(response, dict):
         return Response(
             response=json.dumps(jsonable_encoder(response)),
@@ -267,11 +304,32 @@ def compact_generate_response(response: Union[Mapping, Generator, RateLimitGener
             content_type="application/json; charset=utf-8",
         )
     else:
+        from core.app.sse.event_cache import SSEEventCache, is_sse_reconnect_enabled, parse_last_event_id
 
         def generate() -> Generator:
+            # Handle SSE reconnection if last_event_id is provided
+            if last_event_id and is_sse_reconnect_enabled():
+                parsed_task_id, sequence = parse_last_event_id(last_event_id)
+
+                # Only attempt reconnection if we have a valid task_id and sequence
+                if parsed_task_id and sequence is not None:
+                    cache = SSEEventCache(parsed_task_id)
+                    cached_events = cache.get_events_after(last_event_id)
+
+                    # Replay cached events first
+                    for event in cached_events:
+                        yield event.data
+
+            # Then yield from the original response generator
             yield from response
 
-        return Response(stream_with_context(generate()), status=200, mimetype="text/event-stream")
+        resp = Response(stream_with_context(generate()), status=200, mimetype="text/event-stream")
+
+        # Add SSE-specific headers for better reconnection support
+        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["X-Accel-Buffering"] = "no"
+
+        return resp
 
 
 def length_prefixed_response(magic_number: int, response: Union[Mapping, Generator, RateLimitGenerator]) -> Response:

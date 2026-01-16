@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from core.app.app_config.entities import VariableEntityType
 from core.app.entities.app_invoke_entities import InvokeFrom
+from core.app.sse.event_cache import SSEEventCache
 from core.file import File, FileUploadConfig
 from core.workflow.enums import NodeType
 from core.workflow.repositories.draft_variable_repository import (
@@ -202,20 +203,61 @@ class BaseAppGenerator:
         return value
 
     @classmethod
-    def convert_to_event_stream(cls, generator: Union[Mapping, Generator[Mapping | str, None, None]]):
+    def convert_to_event_stream(
+        cls,
+        generator: Union[Mapping, Generator[Mapping | str, None, None]],
+        task_id: str | None = None,
+    ):
         """
-        Convert messages into event stream
+        Convert messages into event stream with optional SSE reconnection support.
+
+        When SSE reconnection is enabled, events will be:
+        1. Assigned unique event IDs in the format {task_id}:{sequence}
+        2. Cached in Redis for potential client reconnection
+
+        The task_id can be provided explicitly, or it will be automatically
+        extracted from the first event's "task_id" field if available.
+
+        Args:
+            generator: The message generator or a single mapping response.
+            task_id: Optional task identifier for SSE reconnection support.
+                     If not provided, will be extracted from the first event.
+
+        Returns:
+            The original mapping if generator is a dict, otherwise a generator
+            that yields SSE-formatted events.
         """
         if isinstance(generator, dict):
             return generator
         else:
 
             def gen():
+                # Cache will be initialized lazily when we get the first event with task_id
+                cache: SSEEventCache | None = None
+                extracted_task_id: str | None = task_id
+
                 for message in generator:
+                    # Try to extract task_id from the first event if not provided
+                    if extracted_task_id is None and isinstance(message, Mapping):
+                        extracted_task_id = message.get("task_id")
+
+                    # Initialize cache lazily once we have a task_id
+                    if cache is None and extracted_task_id:
+                        cache = SSEEventCache(extracted_task_id)
+
                     if isinstance(message, Mapping | dict):
-                        yield f"data: {orjson_dumps(message)}\n\n"
+                        sse_data = f"data: {orjson_dumps(message)}\n\n"
                     else:
-                        yield f"event: {message}\n\n"
+                        sse_data = f"event: {message}\n\n"
+
+                    # Add event ID and cache if SSE reconnection is enabled
+                    if cache and cache.enabled:
+                        event_id = cache.generate_event_id()
+                        sse_with_id = f"id: {event_id}\n{sse_data}"
+                        cache.push_event(event_id, sse_with_id)
+                        yield sse_with_id
+                    else:
+                        yield sse_data
 
             return gen()
 
